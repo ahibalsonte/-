@@ -219,6 +219,13 @@
     border-radius: 20px; padding: 6px 14px;
     font-size: 12px; color: var(--accent2); font-weight: 600;
   }
+  
+  footer {
+    text-align: center;
+    font-size: 10px;
+    color: var(--text-muted);
+    
+  }
 </style>
 </head>
 <body>
@@ -298,6 +305,8 @@
       <button class="btn btn-outline" id="restartBtn">처음부터 다시</button>
     </div>
   </div>
+  
+  <footer>버그 제보, 문의<br>raon120378@gmail.com</footer>
 
 </div>
 
@@ -516,7 +525,7 @@ function applyFrame() {
     const ctx = canvas.getContext('2d');
 
     const r  = isRounded ? Math.round(Math.min(iw,ih) * 0.07) : 0;
-    const lw = Math.max(2, Math.round(Math.min(iw,ih) * 0.00));
+    const lw = Math.max(2, Math.round(Math.min(iw,ih) * 0.0055));
 
     if (isBlur) {
       // FIX 3: hole-punch compositing
