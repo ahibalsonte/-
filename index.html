@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>프레임 메이커</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap');
+
+  :root {
+    --bg: #0f0f13;
+    --surface: #18181f;
+    --surface2: #22222d;
+    --border: #2e2e3e;
+    --accent: #7c6aff;
+    --accent2: #a78bfa;
+    --text: #e8e8f0;
+    --text-muted: #6b6b80;
+    --white: #ffffff;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans KR', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  header { width: 100%; padding: 28px 0 16px; text-align: center; }
+  header h1 { font-size: 22px; font-weight: 700; letter-spacing: 0.08em; color: var(--white); }
+  header p { font-size: 12px; color: var(--text-muted); margin-top: 4px; letter-spacing: 0.05em; }
+
+  .app {
+    width: 100%;
+    max-width: 480px;
+    padding: 0 20px 60px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .step-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+  }
+
+  .step-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    color: var(--accent2);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+
+  /* Upload */
+  .upload-zone {
+    border: 1.5px dashed var(--border);
+    border-radius: 12px;
+    padding: 32px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+  }
+  .upload-zone:hover, .upload-zone.drag-over {
+    border-color: var(--accent);
+    background: rgba(124,106,255,0.05);
+  }
+  .upload-zone input { display: none; }
+  .upload-icon { font-size: 32px; margin-bottom: 8px; }
+  .upload-zone p { font-size: 13px; color: var(--text-muted); }
+  .upload-zone strong { color: var(--accent2); font-weight: 500; }
+
+  /* Crop */
+  #cropSection { display: none; }
+
+  .crop-ratio-btns { display: flex; gap: 8px; margin-bottom: 12px; }
+  .ratio-btn {
+    flex: 1; padding: 8px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text-muted);
+    font-size: 12px;
+    font-family: 'Noto Sans KR', sans-serif;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .ratio-btn.active, .ratio-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent2);
+    background: rgba(124,106,255,0.08);
+  }
+
+  .crop-container {
+    position: relative;
+    border-radius: 10px;
+    background: #000;
+    user-select: none;
+    touch-action: none;
+    line-height: 0;
+    cursor: crosshair;
+    /* FIX 2: clip the 9999px box-shadow so it can't bleed outside */
+    overflow: hidden;
+  }
+
+  #cropImg {
+    display: block;
+    width: 100%;
+    border-radius: 10px;
+    pointer-events: none;
+  }
+
+  .crop-box {
+    position: absolute;
+    /* box-shadow clipped by overflow:hidden on parent — no more page-dark */
+    box-shadow: 0 0 0 9999px rgba(0,0,0,0.52);
+    border: 2px solid rgba(255,255,255,0.92);
+    pointer-events: none;
+  }
+
+  .crop-handle {
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    background: #fff;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    z-index: 2;
+  }
+  #handleTL { top: 0; left: 0; }
+  #handleTR { top: 0; left: 100%; }
+  #handleBL { top: 100%; left: 0; }
+  #handleBR { top: 100%; left: 100%; }
+
+  /* Buttons */
+  .btn {
+    width: 100%; padding: 13px;
+    border-radius: 10px; border: none;
+    font-family: 'Noto Sans KR', sans-serif;
+    font-size: 14px; font-weight: 500;
+    cursor: pointer; transition: all 0.15s;
+    margin-top: 12px;
+  }
+  .btn-primary { background: var(--accent); color: var(--white); }
+  .btn-primary:hover { background: #6b59ee; transform: translateY(-1px); }
+  .btn-outline { background: transparent; border: 1.5px solid var(--border); color: var(--text-muted); }
+  .btn-outline:hover { border-color: var(--accent); color: var(--accent2); }
+
+  /* Frame select */
+  #frameSection { display: none; }
+
+  .frame-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  .frame-option {
+    background: var(--surface2);
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    padding: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+  .frame-option:hover { border-color: var(--accent); }
+  .frame-option.selected { border-color: var(--accent); background: rgba(124,106,255,0.08); }
+
+  .frame-preview-box {
+    width: 72px; height: 72px;
+    position: relative; overflow: hidden;
+    background: linear-gradient(135deg, #5b8dee 0%, #9b59b6 100%);
+  }
+  .fp-sharp { border-radius: 0; }
+  .fp-rounded { border-radius: 14px; }
+  .fp-line-sharp { outline: 3px solid rgba(255,255,255,0.9); outline-offset: -7px; border-radius: 0; }
+  .fp-line-rounded { outline: 3px solid rgba(255,255,255,0.9); outline-offset: -7px; border-radius: 14px; }
+  .fp-blur::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at center, transparent 52%, rgba(255,255,255,0.6) 100%);
+    filter: blur(2px);
+  }
+
+  .frame-option-label { font-size: 11px; color: var(--text-muted); text-align: center; line-height: 1.4; }
+  .frame-option.selected .frame-option-label { color: var(--accent2); }
+
+  /* Result */
+  #resultSection { display: none; }
+
+  .result-wrap {
+    display: flex; flex-direction: column;
+    align-items: center; gap: 16px;
+  }
+  #resultCanvas { width: 100%; max-width: 340px; border-radius: 12px; display: block; }
+  .result-hint { font-size: 12px; color: var(--text-muted); text-align: center; line-height: 1.7; }
+  .result-hint span {
+    display: inline-block;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 3px 8px;
+    font-size: 11px; color: var(--accent2); margin: 2px;
+  }
+  .done-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(124,106,255,0.15);
+    border: 1px solid var(--accent);
+    border-radius: 20px; padding: 6px 14px;
+    font-size: 12px; color: var(--accent2); font-weight: 600;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>✦ FRAME MAKER</h1>
+  <p>이미지에 프레임을 씌워보세요</p>
+</header>
+
+<div class="app">
+
+  <!-- 01 Upload -->
+  <div class="step-card" id="uploadSection">
+    <div class="step-label">01 · 이미지 업로드</div>
+    <div class="upload-zone" id="uploadZone">
+      <input type="file" id="fileInput" accept="image/*">
+      <div class="upload-icon">🖼️</div>
+      <p>탭해서 이미지 선택<br><strong>또는 여기에 드래그</strong></p>
+    </div>
+  </div>
+
+  <!-- 02 Crop -->
+  <div class="step-card" id="cropSection">
+    <div class="step-label">02 · 크롭</div>
+    <div class="crop-ratio-btns">
+      <button class="ratio-btn active" data-ratio="1:1">1 : 1</button>
+      <button class="ratio-btn" data-ratio="2:3">2 : 3</button>
+      <button class="ratio-btn" data-ratio="free">자유</button>
+    </div>
+    <div class="crop-container" id="cropContainer">
+      <img id="cropImg" src="" alt="">
+      <div class="crop-box" id="cropBox">
+        <div class="crop-handle" id="handleTL"></div>
+        <div class="crop-handle" id="handleTR"></div>
+        <div class="crop-handle" id="handleBL"></div>
+        <div class="crop-handle" id="handleBR"></div>
+      </div>
+    </div>
+    <button class="btn btn-primary" id="cropBtn">크롭 적용 →</button>
+  </div>
+
+  <!-- 03 Frame -->
+  <div class="step-card" id="frameSection">
+    <div class="step-label">03 · 프레임 선택</div>
+    <div class="frame-grid">
+      <div class="frame-option selected" data-frame="line-sharp">
+        <div class="frame-preview-box fp-sharp fp-line-sharp"></div>
+        <div class="frame-option-label">선 프레임<br>직각</div>
+      </div>
+      <div class="frame-option" data-frame="line-rounded">
+        <div class="frame-preview-box fp-rounded fp-line-rounded"></div>
+        <div class="frame-option-label">선 프레임<br>곡선</div>
+      </div>
+      <div class="frame-option" data-frame="blur-sharp">
+        <div class="frame-preview-box fp-sharp fp-blur"></div>
+        <div class="frame-option-label">블러 프레임<br>직각</div>
+      </div>
+      <div class="frame-option" data-frame="blur-rounded">
+        <div class="frame-preview-box fp-rounded fp-blur"></div>
+        <div class="frame-option-label">블러 프레임<br>곡선</div>
+      </div>
+    </div>
+    <button class="btn btn-primary" id="applyBtn">프레임 적용 →</button>
+  </div>
+
+  <!-- 04 Result -->
+  <div class="step-card" id="resultSection">
+    <div class="step-label">04 · 완성!</div>
+    <div class="result-wrap">
+      <div class="done-badge">✦ 완성됐어요</div>
+      <canvas id="resultCanvas"></canvas>
+      <div class="result-hint">
+        이미지를 <span>꾹 눌러서</span> 저장하거나<br>
+        아래 버튼으로 다운로드하세요
+      </div>
+      <button class="btn btn-primary" id="downloadBtn">⬇ 다운로드</button>
+      <button class="btn btn-outline" id="restartBtn">처음부터 다시</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────
+let originalImage = null;
+let croppedDataURL = null;
+let selectedFrame  = 'line-sharp';
+let cropRatioKey   = '1:1';
+
+let cropBox = { x:0, y:0, w:0, h:0 };
+let displayW = 0, displayH = 0;
+
+// ── Elements ───────────────────────────────────────────
+const uploadZone    = document.getElementById('uploadZone');
+const fileInput     = document.getElementById('fileInput');
+const cropImg       = document.getElementById('cropImg');
+const cropContainer = document.getElementById('cropContainer');
+const cropBoxEl     = document.getElementById('cropBox');
+const resultCanvas  = document.getElementById('resultCanvas');
+
+// ── Upload ─────────────────────────────────────────────
+uploadZone.addEventListener('click', () => fileInput.click());
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
+uploadZone.addEventListener('drop', e => {
+  e.preventDefault(); uploadZone.classList.remove('drag-over');
+  handleFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', e => handleFile(e.target.files[0]));
+
+function handleFile(file) {
+  if (!file || !file.type.startsWith('image/')) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    originalImage = new Image();
+    originalImage.onload = () => {
+      cropImg.src = ev.target.result;
+      cropImg.onload = () => {
+        document.getElementById('cropSection').style.display = 'block';
+        requestAnimationFrame(() => requestAnimationFrame(initCrop));
+      };
+    };
+    originalImage.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+// ── Crop init ──────────────────────────────────────────
+function getRatio(key) {
+  if (key === '1:1') return { rw:1, rh:1 };
+  if (key === '2:3') return { rw:2, rh:3 };
+  return null;
+}
+
+function initCrop() {
+  displayW = cropImg.offsetWidth;
+  displayH = cropImg.offsetHeight;
+  if (!displayW || !displayH) { requestAnimationFrame(initCrop); return; }
+
+  const ratio = getRatio(cropRatioKey);
+  let cw, ch;
+  if (!ratio) {
+    cw = displayW * 0.85;
+    ch = displayH * 0.85;
+  } else {
+    cw = displayW * 0.9;
+    ch = cw * (ratio.rh / ratio.rw);
+    if (ch > displayH * 0.9) { ch = displayH * 0.9; cw = ch * (ratio.rw / ratio.rh); }
+  }
+  cropBox = { x:(displayW-cw)/2, y:(displayH-ch)/2, w:cw, h:ch };
+  updateCropUI();
+}
+
+function updateCropUI() {
+  cropBoxEl.style.left   = cropBox.x + 'px';
+  cropBoxEl.style.top    = cropBox.y + 'px';
+  cropBoxEl.style.width  = cropBox.w + 'px';
+  cropBoxEl.style.height = cropBox.h + 'px';
+}
+
+// ── Ratio buttons ──────────────────────────────────────
+document.querySelectorAll('.ratio-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.ratio-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    cropRatioKey = btn.dataset.ratio;
+    initCrop();
+  });
+});
+
+// ── Crop interaction (FIX 1) ───────────────────────────
+// Events on container — no pointer-events on cropBox itself.
+let mode = null; // 'drag' | 'TL' | 'TR' | 'BL' | 'BR'
+let startPt = {x:0, y:0};
+let startBox = {x:0, y:0, w:0, h:0};
+
+function ptrXY(e) {
+  const r = cropContainer.getBoundingClientRect();
+  const s = e.touches ? e.touches[0] : e;
+  return { x: s.clientX - r.left, y: s.clientY - r.top };
+}
+
+function detectMode(px, py) {
+  const {x, y, w, h} = cropBox;
+  const T = 22; // hit radius for handles
+  if (dist(px, py, x,   y  ) < T) return 'TL';
+  if (dist(px, py, x+w, y  ) < T) return 'TR';
+  if (dist(px, py, x,   y+h) < T) return 'BL';
+  if (dist(px, py, x+w, y+h) < T) return 'BR';
+  if (px > x && px < x+w && py > y && py < y+h) return 'drag';
+  return null;
+}
+
+function dist(ax,ay,bx,by){ return Math.hypot(ax-bx, ay-by); }
+
+function onDown(e) {
+  e.preventDefault();
+  const {x,y} = ptrXY(e);
+  mode = detectMode(x, y);
+  if (!mode) return;
+  startPt  = {x, y};
+  startBox = {...cropBox};
+}
+
+function onMove(e) {
+  if (!mode) return;
+  e.preventDefault();
+  const {x,y} = ptrXY(e);
+  const dx = x - startPt.x, dy = y - startPt.y;
+  const MIN = 40;
+  const ratio = getRatio(cropRatioKey);
+  let {x:bx, y:by, w:bw, h:bh} = startBox;
+
+  if (mode === 'drag') {
+    bx = clamp(bx + dx, 0, displayW - bw);
+    by = clamp(by + dy, 0, displayH - bh);
+  } else {
+    let nx=bx, ny=by, nw=bw, nh=bh;
+    if (mode === 'BR') {
+      nw = clamp(bw + dx, MIN, displayW - bx);
+      nh = ratio ? nw*(ratio.rh/ratio.rw) : clamp(bh+dy, MIN, displayH-by);
+    } else if (mode === 'TL') {
+      nw = clamp(bw - dx, MIN, bx+bw);
+      nh = ratio ? nw*(ratio.rh/ratio.rw) : clamp(bh-dy, MIN, by+bh);
+      nx = bx+bw - nw; ny = by+bh - nh;
+    } else if (mode === 'TR') {
+      nw = clamp(bw + dx, MIN, displayW - bx);
+      nh = ratio ? nw*(ratio.rh/ratio.rw) : clamp(bh-dy, MIN, by+bh);
+      ny = by+bh - nh;
+    } else if (mode === 'BL') {
+      nw = clamp(bw - dx, MIN, bx+bw);
+      nh = ratio ? nw*(ratio.rh/ratio.rw) : clamp(bh+dy, MIN, displayH-by);
+      nx = bx+bw - nw;
+    }
+    bx=clamp(nx,0,displayW-MIN); by=clamp(ny,0,displayH-MIN);
+    bw=clamp(nw,MIN,displayW-bx); bh=clamp(nh,MIN,displayH-by);
+  }
+  cropBox = {x:bx, y:by, w:bw, h:bh};
+  updateCropUI();
+}
+
+function onUp() { mode = null; }
+function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
+
+cropContainer.addEventListener('mousedown',  onDown);
+cropContainer.addEventListener('touchstart', onDown, {passive:false});
+window.addEventListener('mousemove',  onMove);
+window.addEventListener('touchmove',  onMove, {passive:false});
+window.addEventListener('mouseup',   onUp);
+window.addEventListener('touchend',  onUp);
+
+// ── Apply crop ─────────────────────────────────────────
+document.getElementById('cropBtn').addEventListener('click', () => {
+  const scaleX = originalImage.naturalWidth  / displayW;
+  const scaleY = originalImage.naturalHeight / displayH;
+  const sx = Math.round(cropBox.x * scaleX);
+  const sy = Math.round(cropBox.y * scaleY);
+  const sw = Math.round(cropBox.w * scaleX);
+  const sh = Math.round(cropBox.h * scaleY);
+
+  const c = document.createElement('canvas');
+  c.width = sw; c.height = sh;
+  c.getContext('2d').drawImage(originalImage, sx, sy, sw, sh, 0, 0, sw, sh);
+  croppedDataURL = c.toDataURL('image/png');
+
+  document.getElementById('frameSection').style.display = 'block';
+  document.getElementById('frameSection').scrollIntoView({behavior:'smooth', block:'start'});
+});
+
+// ── Frame selection ────────────────────────────────────
+document.querySelectorAll('.frame-option').forEach(opt => {
+  opt.addEventListener('click', () => {
+    document.querySelectorAll('.frame-option').forEach(o => o.classList.remove('selected'));
+    opt.classList.add('selected');
+    selectedFrame = opt.dataset.frame;
+  });
+});
+
+// ── Apply frame ────────────────────────────────────────
+document.getElementById('applyBtn').addEventListener('click', applyFrame);
+
+function applyFrame() {
+  const img = new Image();
+  img.onload = () => {
+    const iw = img.width, ih = img.height;
+    const isBlur    = selectedFrame.startsWith('blur');
+    const isRounded = selectedFrame.endsWith('rounded');
+
+    // FIX 2: canvas = image size + small padding (no forced square)
+    const PAD = Math.round(Math.min(iw,ih) * 0.06);
+    const cw  = iw + PAD*2;
+    const ch  = ih + PAD*2;
+    const canvas = resultCanvas;
+    canvas.width = cw; canvas.height = ch;
+    const ctx = canvas.getContext('2d');
+
+    const r  = isRounded ? Math.round(Math.min(iw,ih) * 0.07) : 0;
+    const lw = Math.max(2, Math.round(Math.min(iw,ih) * 0.00));
+
+    if (isBlur) {
+      // FIX 3: hole-punch compositing
+      // A) Draw the original image at full size first
+      ctx.drawImage(img, PAD, PAD, iw, ih);
+
+      // B) Create an off-screen canvas for the blurred overlay layer
+      const blurCanvas = document.createElement('canvas');
+      blurCanvas.width  = cw;
+      blurCanvas.height = ch;
+      const bCtx = blurCanvas.getContext('2d');
+
+      // B1) Draw blurred image to fill the whole blurCanvas (enlarged so blur edge fills padding)
+      const blurPx = Math.round(Math.min(iw,ih) * 0.025);
+      bCtx.filter = `blur(${blurPx}px)`;
+      bCtx.drawImage(img, PAD - blurPx*4, PAD - blurPx*4, iw + blurPx*8, ih + blurPx*8);
+      bCtx.filter = 'none';
+
+      // B2) Punch a hole = erase the inner rectangle using destination-out
+      bCtx.globalCompositeOperation = 'destination-out';
+      // The hole is the image area; for rounded we use a rounded rect
+      roundPath(bCtx, PAD, PAD, iw, ih, r);
+      bCtx.fill();
+      bCtx.globalCompositeOperation = 'source-over';
+
+      // C) Stamp the blurred overlay (with hole) onto the main canvas
+      ctx.drawImage(blurCanvas, 0, 0);
+
+      // D) White border line on top
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255,255,255,0.88)';
+      ctx.lineWidth   = lw;
+      ctx.shadowColor = 'rgba(255,255,255,0.4)';
+      ctx.shadowBlur  = lw * 3;
+      roundPath(ctx, PAD + lw*0.5, PAD + lw*0.5, iw - lw, ih - lw, r);
+      ctx.stroke();
+      ctx.restore();
+
+    } 
+    
+    else {
+      // Line frame — draw image, then white rect inset
+      ctx.drawImage(img, PAD, PAD, iw, ih);
+
+      const inset = Math.round(Math.min(iw,ih) * 0.044);
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255,255,255,0.95)';
+      ctx.lineWidth   = lw;
+      ctx.shadowColor = 'rgba(255,255,255,0.3)';
+      ctx.shadowBlur  = lw * 2;
+      roundPath(ctx, PAD+inset, PAD+inset, iw-inset*2, ih-inset*2, r);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    document.getElementById('resultSection').style.display = 'block';
+    setTimeout(() => {
+      document.getElementById('resultSection').scrollIntoView({behavior:'smooth', block:'start'});
+    }, 80);
+  };
+  img.src = croppedDataURL;
+}
+
+function roundPath(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  if (r <= 0) { ctx.rect(x,y,w,h); }
+  else {
+    ctx.moveTo(x+r, y);
+    ctx.lineTo(x+w-r, y);   ctx.quadraticCurveTo(x+w, y,   x+w, y+r);
+    ctx.lineTo(x+w, y+h-r); ctx.quadraticCurveTo(x+w, y+h, x+w-r, y+h);
+    ctx.lineTo(x+r, y+h);   ctx.quadraticCurveTo(x,   y+h, x,   y+h-r);
+    ctx.lineTo(x, y+r);     ctx.quadraticCurveTo(x,   y,   x+r, y);
+    ctx.closePath();
+  }
+}
+
+// ── Download ───────────────────────────────────────────
+document.getElementById('downloadBtn').addEventListener('click', () => {
+  const a = document.createElement('a');
+  a.download = 'framed.png';
+  a.href = resultCanvas.toDataURL('image/png');
+  a.click();
+});
+
+document.getElementById('restartBtn').addEventListener('click', () => location.reload());
+</script>
+</body>
+</html>
